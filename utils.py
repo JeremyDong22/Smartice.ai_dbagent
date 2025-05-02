@@ -2,7 +2,7 @@
 # Helper functions for the Supabase Multiagent System
 # Created with database connection functions and environment variable handling
 # Updated format_sql_results to handle Decimal and date types
-# Updated get_direct_db_connection to prioritize DATABASE_URL for Render compatibility
+# Updated get_direct_db_connection to prioritize DATABASE_URL (fetched internally) for Render compatibility
 
 import os
 from typing import Dict, Any, List
@@ -17,16 +17,13 @@ import datetime # Import datetime
 # Load environment variables
 load_dotenv()
 
-# --- Added DATABASE_URL --- 
-DATABASE_URL = os.getenv("DATABASE_URL") 
-
 # Environment variables for Supabase and OpenAI
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Database connection details
+# Database connection details (Fallback)
 DB_HOST = os.getenv("SUPABASE_DB_HOST")
 DB_NAME = os.getenv("SUPABASE_DB_NAME")
 DB_USER = os.getenv("SUPABASE_DB_USER")
@@ -42,28 +39,40 @@ def get_direct_db_connection():
     Falls back to individual DB_* variables if DATABASE_URL is not set.
     """
     try:
-        if DATABASE_URL:
+        # --- Fetch DATABASE_URL inside the function --- 
+        database_url_from_env = os.getenv("DATABASE_URL")
+        
+        if database_url_from_env:
             # Use DATABASE_URL if available (preferred for Render)
             print("Connecting using DATABASE_URL...") # Add log
-            conn = psycopg2.connect(DATABASE_URL)
+            conn = psycopg2.connect(database_url_from_env)
         else:
             # Fallback to individual variables (for local dev without DATABASE_URL)
             print("Connecting using individual DB variables...") # Add log
-            if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT]):
-                raise ValueError("Missing one or more required DB environment variables (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT) when DATABASE_URL is not set.")
+            # Fetch fallback variables here too, to be explicit
+            db_host = os.getenv("SUPABASE_DB_HOST")
+            db_name = os.getenv("SUPABASE_DB_NAME")
+            db_user = os.getenv("SUPABASE_DB_USER")
+            db_password = os.getenv("SUPABASE_DB_PASSWORD")
+            db_port = os.getenv("SUPABASE_DB_PORT")
+            
+            if not all([db_host, db_name, db_user, db_password, db_port]):
+                raise ValueError("Missing one or more required DB environment variables (SUPABASE_DB_HOST, SUPABASE_DB_NAME, SUPABASE_DB_USER, SUPABASE_DB_PASSWORD, SUPABASE_DB_PORT) when DATABASE_URL is not set.")
+            
             conn = psycopg2.connect(
-                host=DB_HOST,
-                database=DB_NAME,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                port=DB_PORT
+                host=db_host,
+                database=db_name,
+                user=db_user,
+                password=db_password,
+                port=db_port
             )
         return conn
     except ValueError as ve:
         print(f"Configuration Error: {ve}") # Log missing variable error
         return None
     except Exception as e:
-        print(f"Error connecting to database: {e}")
+        # Log the specific connection error
+        print(f"Error connecting to database: {e}") 
         return None
 
 def execute_sql_query(query: str) -> List[Dict[str, Any]]:
