@@ -185,11 +185,11 @@ def execute_vector_search(state: AgentState) -> AgentState:
     vector_search_text = state.get("vector_search_text", "")
     embedding_vector_str = state.get("embedding_vector_str")
     sql_filter = state.get("sql_filter")
-    # --- Get the resolved OpenAI API key from state --- 
+    # --- Get the resolved OpenAI API key from state ---
     openai_api_key = state.get("openai_api_key")
     num_results = 5
 
-    # Prepare the input for the vector search tool, including the API key
+    # Prepare the input dictionary matching the VectorSearchInput schema
     tool_input_dict = {
         "text": vector_search_text,
         "num_results": num_results,
@@ -201,8 +201,9 @@ def execute_vector_search(state: AgentState) -> AgentState:
     print(f"Debug: Invoking vector_search_tool with input (API key omitted for brevity): { {k:v for k,v in tool_input_dict.items() if k != 'openai_api_key'} }")
 
     try:
-        # Invoke the tool using the structured input
-        results = vector_search_tool.invoke(tool_input_dict)
+        # --- FIX: Invoke the tool using the structured input wrapped correctly ---
+        # The key 'search_input' must match the parameter name in the tool definition
+        results = vector_search_tool.invoke({"search_input": tool_input_dict})
     except Exception as e:
         results = f"Error executing vector search: {str(e)}"
         print(f"Error details: {e}")
