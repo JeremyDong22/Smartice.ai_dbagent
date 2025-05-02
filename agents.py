@@ -225,8 +225,11 @@ def validation_planner(state: Dict[str, Any]) -> Dict[str, Any]:
             validation_results_text.append(f"- 品牌 '{brand_to_validate}' 存在状态: {exists}")
             if exists:
                 brand_exists = True
-                # Add condition for filter, ensuring proper quoting for SQL strings
-                sql_filter_parts.append(f"b.name = '{brand_to_validate.replace("'", "''")}'")
+                # --- Refactor SQL escaping and f-string --- 
+                # 1. Escape the brand name for SQL
+                escaped_brand_name = brand_to_validate.replace("'", "''")
+                # 2. Append the filter using the escaped value in a simpler f-string
+                sql_filter_parts.append(f"b.name = '{escaped_brand_name}'")
         except Exception as e:
             print(f"Error invoking validate_value_exists for brand: {e}")
             validation_results_text.append(f"- 品牌 '{brand_to_validate}' 验证出错: {e}")
