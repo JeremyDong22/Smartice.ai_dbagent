@@ -11,7 +11,8 @@ from langchain.tools import tool
 from utils import execute_sql_query
 
 # Initialize OpenAI client (used if embedding is not pre-computed)
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# --- Commented out global client initialization causing startup dependency ---
+# openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) 
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "text-embedding-3-small")
 
 class SQLQueryInput(BaseModel):
@@ -22,6 +23,7 @@ class VectorSearchInput(BaseModel):
     num_results: int = Field(description="Number of results to return", default=5)
     embedding_str: Optional[str] = Field(default=None, description="Pre-computed embedding vector string (e.g., '[0.1, 0.2, ...]')")
     sql_filter: Optional[str] = Field(default=None, description="Optional SQL WHERE clause condition (e.g., \"b.name = '三出山'\")")
+    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API Key for fallback embedding generation")
 
 @tool
 def sql_query_tool(query_input: SQLQueryInput) -> str:
@@ -80,7 +82,9 @@ def get_similar_values(table_name: str, column_name: str, value: str, limit: int
 
 @tool
 def vector_search_tool(search_input: VectorSearchInput) -> str:
-    """Search for similar content in the posts table using vector embeddings, optionally applying an SQL filter."""
+    """Search for similar content in the posts table using vector embeddings, optionally applying an SQL filter.
+       Uses pre-computed embedding if provided. If not, attempts fallback generation ONLY using the provided openai_api_key.
+    """
     final_embedding_str = None
 
     # Use pre-computed embedding if provided
@@ -93,23 +97,38 @@ def vector_search_tool(search_input: VectorSearchInput) -> str:
              # Fallback handled below
              pass
 
-    # If no valid pre-computed embedding, generate it from text
+    # --- Fallback: If no valid pre-computed embedding, attempt generation using provided key --- 
     if not final_embedding_str:
-        print(f"Debug: Generating embedding from text: '{search_input.text}'")
+        print(f"Debug: Pre-computed embedding not provided or invalid. Attempting fallback generation for text: '{search_input.text}'")
         if not search_input.text:
              return "Error: Cannot perform vector search without text or a valid pre-computed embedding."
+        
+        # --- Check if API key was passed to the tool --- 
+        if not search_input.openai_api_key:
+            print("Error: Fallback embedding generation requires an OpenAI API key passed to the tool, but none was provided.")
+            return "Error: Pre-computed embedding was not provided, and fallback generation failed due to missing API key."
+            
         try:
-            response = openai_client.embeddings.create(
+            # --- Create client dynamically using the key passed to the tool --- 
+            print("Debug: Creating dynamic OpenAI client for fallback embedding generation.")
+            fallback_openai_client = OpenAI(api_key=search_input.openai_api_key)
+            
+            response = fallback_openai_client.embeddings.create(
                 model=EMBEDDING_MODEL_NAME,
                 input=search_input.text
             )
             embedding = response.data[0].embedding
-            final_embedding_str = str(embedding) # Convert list to string
-        except Exception as e:
-            return f"Error creating embedding for text '{search_input.text}': {str(e)}"
+            final_embedding_str = str(embedding)
+            print(f"Debug: Successfully generated fallback embedding vector (first few dims): {embedding[:5]}...")
 
-    # Ensure we have a valid embedding string now
+        except Exception as e:
+            # Catch errors during fallback generation (e.g., invalid key passed)
+            print(f"Error during fallback embedding creation for text '{search_input.text}' using the provided API key: {str(e)}")
+            return f"Error: Fallback embedding generation failed: {str(e)}"
+
+    # Ensure we have a valid embedding string now (either pre-computed or from fallback)
     if not final_embedding_str or not (final_embedding_str.startswith('[') and final_embedding_str.endswith(']')):
+        # This error should ideally not be reached if fallback logic is correct
         return f"Error: Failed to obtain a valid embedding vector string."
 
     pgvector_embedding_str = final_embedding_str # Use '[...]' format directly

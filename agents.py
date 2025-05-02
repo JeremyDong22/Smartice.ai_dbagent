@@ -156,7 +156,7 @@ def initial_planner(state: Dict[str, Any]) -> Dict[str, Any]:
 
     # Process response only if the call was successful
     if response:
-        print(f"Raw response content from Gemini: {response.content}") # Added debug print
+        print(f"DEBUG: Raw LLM response content:\n---\n{response.content}\n---") # <-- 添加这行日志
         try:
             content_str = response.content.strip()
             if content_str.startswith("```json"):
