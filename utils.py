@@ -2,6 +2,7 @@
 # Helper functions for the Supabase Multiagent System
 # Created with database connection functions and environment variable handling
 # Updated format_sql_results to handle Decimal and date types
+# Updated get_direct_db_connection to prioritize DATABASE_URL for Render compatibility
 
 import os
 from typing import Dict, Any, List
@@ -15,6 +16,9 @@ import datetime # Import datetime
 
 # Load environment variables
 load_dotenv()
+
+# --- Added DATABASE_URL --- 
+DATABASE_URL = os.getenv("DATABASE_URL") 
 
 # Environment variables for Supabase and OpenAI
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -33,16 +37,31 @@ DB_PORT = os.getenv("SUPABASE_DB_PORT")
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 def get_direct_db_connection():
-    """Create a direct connection to the Postgres database."""
+    """Create a direct connection to the Postgres database.
+    Prioritizes DATABASE_URL environment variable (used by Render).
+    Falls back to individual DB_* variables if DATABASE_URL is not set.
+    """
     try:
-        conn = psycopg2.connect(
-            host=DB_HOST,
-            database=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            port=DB_PORT
-        )
+        if DATABASE_URL:
+            # Use DATABASE_URL if available (preferred for Render)
+            print("Connecting using DATABASE_URL...") # Add log
+            conn = psycopg2.connect(DATABASE_URL)
+        else:
+            # Fallback to individual variables (for local dev without DATABASE_URL)
+            print("Connecting using individual DB variables...") # Add log
+            if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT]):
+                raise ValueError("Missing one or more required DB environment variables (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT) when DATABASE_URL is not set.")
+            conn = psycopg2.connect(
+                host=DB_HOST,
+                database=DB_NAME,
+                user=DB_USER,
+                password=DB_PASSWORD,
+                port=DB_PORT
+            )
         return conn
+    except ValueError as ve:
+        print(f"Configuration Error: {ve}") # Log missing variable error
+        return None
     except Exception as e:
         print(f"Error connecting to database: {e}")
         return None
