@@ -1,11 +1,9 @@
 # agents.py
-# Agent definitions for the Supabase Multiagent System
-# Created with five specialized agents: initial planner, validation planner, 
-# SQL generator, vector generator, and synthesizer
-# Updated initial_planner to detect query intent
-# Updated synthesizer to handle direct routing from initial_planner
-# Updated validation_planner to use tool.invoke() for programmatic calls
-# Updated validation_planner to generate sql_filter string
+# Defines the core agents (nodes) for the LangGraph application.
+# Includes initial planner, validation planner, SQL generator, vector generator, and synthesizer.
+# API keys (OpenAI, Google) are primarily sourced from environment variables 
+# (OPENAI_API_KEY, GOOGLE_API_KEY) configured via LangGraph's ConfigurableField mechanism 
+# or passed through state, falling back to direct os.getenv within specific tool calls if necessary.
 
 import os
 import json
@@ -77,7 +75,6 @@ initial_planner_prompt = ChatPromptTemplate.from_template("""
 
 用户输入: {query}
 
-请首先判断用户输入是否包含明确的数据库查询意图，并分析查询需求。
 输出格式如下：
 
 ```json
@@ -96,7 +93,7 @@ initial_planner_prompt = ChatPromptTemplate.from_template("""
 2. 需要查询的表和列: 哪些表和列包含相关信息？指出哪些信息可能需要从`posts.content`中通过向量搜索获取。
 3. 查询条件: 需要应用哪些过滤条件（包括品牌、城市、榜单等）？是否需要最新数据？
 4. **明确指出查询中提到的城市名称 (如果存在)，并说明它对应 `dzdpdata.城市` 列。**
-5. 把食物品类理解为榜单名，比如海鲜，火锅，烤串，烧烤，甜品，咖啡，小吃，，烤肉，川菜等，都可以理解为榜单名。
+5. 把食物品类理解为榜单名，比如海鲜，火锅，烤串，烧烤，甜品，咖啡，小吃，，烤肉，川菜等，都可以理解为榜单名。如果没有提及榜单，就默认使用主榜单查询。
 
 比如：
 用户："上海的火锅榜前3名是谁？评分和人均价格呢？"

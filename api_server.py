@@ -1,8 +1,8 @@
 # api_server.py
-# Created by AI Assistant to provide an API endpoint for the LangGraph agent.
-# Updated by AI Assistant: Response now includes intermediate agent steps.
-# Updated by AI Assistant: Added /stream endpoint for streaming responses.
-# Updated by AI Assistant: /stream endpoint now uses app.stream() for real-time steps.
+# FastAPI server to expose the LangGraph agent as an API.
+# Handles incoming requests, manages state, and streams responses.
+# API keys (OpenAI, Google) are primarily sourced from environment variables 
+# (OPENAI_API_KEY, GOOGLE_API_KEY) unless explicitly provided in the request body.
 
 from itertools import tee
 import uvicorn
@@ -69,19 +69,18 @@ langgraph_app = initialize_app()
 
 # Helper function to build the config dictionary FOR LLMs
 def build_llm_config(google_api_key_req: Optional[str], openai_api_key_req: Optional[str]) -> Dict:
-    config = {
+    """Builds the LLM configuration dictionary, prioritizing request keys over environment variables."""
+    # Use request key if provided, otherwise fall back to environment variable
+    resolved_google_key = google_api_key_req or os.getenv("GOOGLE_API_KEY")
+    resolved_openai_key = openai_api_key_req or os.getenv("OPENAI_API_KEY")
+    
+    # Return configuration suitable for LangGraph state
+    return {
         "configurable": {
-            "google_api_key": google_api_key_req,
-            "openai_api_key": openai_api_key_req,
+            "google_api_key": resolved_google_key,
+            "openai_api_key": resolved_openai_key,
         }
     }
-    config["configurable"] = { 
-        k: v for k, v in config["configurable"].items() if v is not None
-    }
-    final_config = {"recursion_limit": 10}
-    if config["configurable"]:
-        final_config.update(config)
-    return final_config
 
 # --- API Endpoint (Updated) ---
 

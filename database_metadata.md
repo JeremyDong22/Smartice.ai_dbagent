@@ -21,7 +21,7 @@
 * **Description:** Stores brand ranking information obtained from Dianping. Data is organized by city, list type, and date. **When querying rankings, ALWAYS filter for the most recent `create_date`.**
 * **Primary Key:** Composite (`榜单`, `品牌`, `create_date`)
 * **Columns:**
-    * `榜单` (text): The name of the ranking list, e.g., "XX市热门榜" (main list) or specific category lists like "创意菜", "咖啡", "烧烤". Part of the composite primary key.
+    * `榜单` (text): The name of the ranking list, e.g., "主榜单" (main list) or specific category lists like "创意菜", "咖啡", "烧烤", "火锅", "烤肉". Part of the composite primary key.
     * `排名` (int4): The brand's rank within this list (`榜单`) on this date (`create_date`).
     * `店铺名称` (text): The full name of the specific shop as displayed on Dianping (may include address details, parentheses, etc.).
     * `品牌` (text): The name of the brand this shop belongs to (cleaned/derived from `店铺名称`). Part of the composite primary key. Use values from `brand.name` to filter this column when searching for a specific brand's ranking.
